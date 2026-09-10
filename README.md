@@ -18,10 +18,14 @@ Raw customer data is ingested via Apache NiFi, stored in HDFS, structured into a
 ## Pipeline
 
 **1. Data Ingestion (NiFi → HDFS)**
-Three NiFi processors handle ingestion: `InvokeHTTP` downloads the CSV from GitHub, `UpdateAttribute` renames it to `telco_churn.csv`, and `PutHDFS` writes it to `/data/final_project` in HDFS.
+Three NiFi processors handle ingestion: `InvokeHTTP` downloads the CSV from GitHub, `UpdateAttribute` renames it to `telco_churn.csv`, and `PutHDFS` writes it to `/data/final_project` in HDFS. 
+
+![NiFi flow design showing the ingestion pipeline](images/nifi-flow-design.png)
 
 **2. Data Warehousing (Hive)**
 A managed Hive table (`final_project.telco_churn`) is built over the ingested data, with column types matched to the source schema (STRING for categorical fields, INT for tenure/SeniorCitizen, DOUBLE for charges). Verified via a `GROUP BY` on churn (5,174 non-churn / 1,869 churn).
+
+![Hive aggregation query results showing churn counts](images/hive-aggregation-result.png)
 
 **3. Environment Setup**
 `numpy` and `happybase` installed on the Spark master and worker nodes so PySpark can write results to HBase via the Thrift server.
@@ -32,8 +36,12 @@ An HBase table (`telco_metrics`) with column family `cf` stores evaluation metri
 **5. Model Training (PySpark MLlib)**
 `telco_churn_lr.py` loads data from Hive, cleans and casts fields, encodes categorical variables (`StringIndexer` + `OneHotEncoder`), assembles a feature vector, and trains a Logistic Regression model on a 70/30 train-test split.
 
+![Spark-submit command running the PySpark job](images/spark-submit-command.png)
+
 **6. Evaluation & Persistence**
 Model performance is evaluated using AUC, accuracy, F1, weighted precision, and weighted recall, then written to HBase under a timestamped run ID.
+
+![HBase scan confirming stored Spark metrics](images/hbase-scan-results.png)
 
 ## Results
 
@@ -41,6 +49,8 @@ Model performance is evaluated using AUC, accuracy, F1, weighted precision, and 
 |---|---|
 | AUC (ROC) | ~0.84 |
 | Accuracy | ~80% |
+
+![Model evaluation metrics output from the Spark job](images/metrics-output.png)
 
 ## Tech Stack
 
